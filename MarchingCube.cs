@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class MarchingCube : MonoBehaviour
 {
-    //EdgeTable
+    //Table lets you find the edge from the corner index of a Cube
     static int[] edgeTable = {
 0x0  , 0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c,
 0x80c, 0x905, 0xa0f, 0xb06, 0xc0a, 0xd03, 0xe09, 0xf00,
@@ -38,8 +38,7 @@ public class MarchingCube : MonoBehaviour
 0x69c, 0x795, 0x49f, 0x596, 0x29a, 0x393, 0x99 , 0x190,
 0xf00, 0xe09, 0xd03, 0xc0a, 0xb06, 0xa0f, 0x905, 0x80c,
 0x70c, 0x605, 0x50f, 0x406, 0x30a, 0x203, 0x109, 0x0   };
-    //
-    //triTable
+    //Table lets you find the triangles order
     int[,] triTable = { {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
 {0, 8, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
 {0, 1, 9, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
@@ -156,7 +155,7 @@ public class MarchingCube : MonoBehaviour
 {0, 7, 3, 0, 10, 7, 0, 9, 10, 6, 7, 10, -1, -1, -1, -1},
 {10, 6, 7, 1, 10, 7, 1, 7, 8, 1, 8, 0, -1, -1, -1, -1},
 {10, 6, 7, 10, 7, 1, 1, 7, 3, -1, -1, -1, -1, -1, -1, -1},
-{1, 2, 6, 1, 6, 8, 1, 8, 9, 8, 6, 7, -1, -1, -1, -1},
+{1, 2, 6, 1, 6, 8, 1, 8, 9, 8, 64, 7, -1, -1, -1, -1},
 {2, 6, 9, 2, 9, 1, 6, 7, 9, 0, 9, 3, 7, 3, 9, -1},
 {7, 8, 0, 7, 0, 6, 6, 0, 2, -1, -1, -1, -1, -1, -1, -1},
 {7, 3, 2, 6, 7, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
@@ -297,11 +296,14 @@ public class MarchingCube : MonoBehaviour
 {0, 3, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
 {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}};
 
-//
-
-
+    public struct VertexValueMesh
+    {
+        public Vector3[] vertexTable;
+        public float[] valueTable;
+    }
+    
     public Vector3 vertexSteps = new Vector3(1,1,1);
-    public Vector3 vertexMultipliers = new Vector3(100,100,100);
+    public Vector3 vertexNumberPerAxis = new Vector3(100,100,100);
 
     public float surfaceLevel;
 
@@ -315,17 +317,10 @@ public class MarchingCube : MonoBehaviour
         public List<int> triangleList = new List<int>();
     
 
-    public struct VertexValueMesh
-    {
-        public Vector3[] vertexTable;
-        public float[] valueTable;
-        public int[] joiningTable;
-    }
-
     void Awake()
     {
         lastMesh = GetComponent<MeshFilter>().mesh;
-        //newMesh = new Mesh();
+        
         createGrid();
         asignValueTable();
         combine = new List<CombineInstance>();
@@ -416,62 +411,50 @@ public class MarchingCube : MonoBehaviour
         VertexValueMesh cube;
         cube.vertexTable = new Vector3[8];
         cube.valueTable = new float[8];
-        cube.joiningTable = new int[16];
 
-        for (int x = 0; x < vertexMultipliers.x-1; x++)
+        for (int x = 0; x < vertexPerAxis.x-1; x++)
         {
-            for (int w = 0; w < vertexMultipliers.x-1; w++)
+            for (int w = 0; w < vertexPerAxis.x-1; w++)
             {
-                for (int v = 0; v < vertexMultipliers.x-1; v++)
+                for (int v = 0; v < vertexPerAxis.x-1; v++)
                 {
-                    //FindCube
-                    /*Debug.Log(x * (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + w * (int)(vertexMultipliers.x) + (int)(vertexMultipliers.x) + v + 1);
-                    Debug.Log(x * (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + w * (int)(vertexMultipliers.x) + v + 1);
-                    Debug.Log(x * (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + w * (int)(vertexMultipliers.x) + v);
-                    Debug.Log(x * (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + w * (int)(vertexMultipliers.x) + (int)(vertexMultipliers.x) + v);
+                    
+                    //Select Cube
+                    
+                    cube.vertexTable[0] = mesh.vertexTable[x * (int)(vertexPerAxis.x) * (int)(vertexPerAxis.z) + w * (int)(vertexPerAxis.x) + (int)(vertexPerAxis.x) + v + 1];
+                    cube.vertexTable[1] = mesh.vertexTable[x * (int)(vertexPerAxis.x) * (int)(vertexPerAxis.z) + w * (int)(vertexPerAxis.x) + v + 1];
 
+                    cube.vertexTable[2] = mesh.vertexTable[x * (int)(vertexPerAxis.x) * (int)(vertexPerAxis.z) + w * (int)(vertexPerAxis.x) + v];
+                    cube.vertexTable[3] = mesh.vertexTable[x * (int)(vertexPerAxis.x) * (int)(vertexPerAxis.z) + w * (int)(vertexPerAxis.x) + (int)(vertexPerAxis.x) + v];
 
-                    Debug.Log(x * (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + w * (int)(vertexMultipliers.x) + (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + (int)(vertexMultipliers.x) + v + 1);
-                    Debug.Log(x * (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + w * (int)(vertexMultipliers.x) + (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + v + 1);
-                    Debug.Log(x * (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + w * (int)(vertexMultipliers.x) + (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + v);
-                    Debug.Log(x * (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + w * (int)(vertexMultipliers.x) + (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + (int)(vertexMultipliers.x) + v);
-                    */
+                    cube.vertexTable[4] = mesh.vertexTable[x * (int)(vertexPerAxis.x) * (int)(vertexPerAxis.z) + w * (int)(vertexPerAxis.x) + (int)(vertexPerAxis.x) * (int)(vertexPerAxis.z) + (int)(vertexPerAxis.x) + v + 1];
+                    cube.vertexTable[5] = mesh.vertexTable[x * (int)(vertexPerAxis.x) * (int)(vertexPerAxis.z) + w * (int)(vertexPerAxis.x) + (int)(vertexPerAxis.x) * (int)(vertexPerAxis.z) + v + 1];
 
-                    cube.vertexTable[0] = mesh.vertexTable[x * (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + w * (int)(vertexMultipliers.x) + (int)(vertexMultipliers.x) + v + 1];
-                    cube.vertexTable[1] = mesh.vertexTable[x * (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + w * (int)(vertexMultipliers.x) + v + 1];
+                    cube.vertexTable[6] = mesh.vertexTable[x * (int)(vertexPerAxis.x) * (int)(vertexPerAxis.z) + w * (int)(vertexPerAxis.x) + (int)(vertexPerAxis.x) * (int)(vertexPerAxis.z) + v];
+                    cube.vertexTable[7] = mesh.vertexTable[x * (int)(vertexPerAxis.x) * (int)(vertexPerAxis.z) + w * (int)(vertexPerAxis.x) + (int)(vertexPerAxis.x) * (int)(vertexPerAxis.z) + (int)(vertexPerAxis.x) + v];
 
-                    cube.vertexTable[2] = mesh.vertexTable[x * (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + w * (int)(vertexMultipliers.x) + v];
-                    cube.vertexTable[3] = mesh.vertexTable[x * (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + w * (int)(vertexMultipliers.x) + (int)(vertexMultipliers.x) + v];
+                    //Attribute Values to vertices
 
-                    cube.vertexTable[4] = mesh.vertexTable[x * (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + w * (int)(vertexMultipliers.x) + (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + (int)(vertexMultipliers.x) + v + 1];
-                    cube.vertexTable[5] = mesh.vertexTable[x * (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + w * (int)(vertexMultipliers.x) + (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + v + 1];
+                    cube.valueTable[0] = mesh.valueTable[x * (int)(vertexPerAxis.x) * (int)(vertexPerAxis.z) + w * (int)(vertexPerAxis.x) + (int)(vertexPerAxis.x) + v + 1];
+                    cube.valueTable[1] = mesh.valueTable[x * (int)(vertexPerAxis.x) * (int)(vertexPerAxis.z) + w * (int)(vertexPerAxis.x) + v + 1];
 
-                    cube.vertexTable[6] = mesh.vertexTable[x * (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + w * (int)(vertexMultipliers.x) + (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + v];
-                    cube.vertexTable[7] = mesh.vertexTable[x * (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + w * (int)(vertexMultipliers.x) + (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + (int)(vertexMultipliers.x) + v];
+                    cube.valueTable[2] = mesh.valueTable[x * (int)(vertexPerAxis.x) * (int)(vertexPerAxis.z) + w * (int)(vertexPerAxis.x) + v];
+                    cube.valueTable[3] = mesh.valueTable[x * (int)(vertexPerAxis.x) * (int)(vertexPerAxis.z) + w * (int)(vertexPerAxis.x) + (int)(vertexPerAxis.x) + v];
 
-                    //sdqsdqsd
+                    cube.valueTable[4] = mesh.valueTable[x * (int)(vertexPerAxis.x) * (int)(vertexPerAxis.z) + w * (int)(vertexPerAxis.x) + (int)(vertexPerAxis.x) * (int)(vertexPerAxis.z) + (int)(vertexPerAxis.x) + v + 1];
+                    cube.valueTable[5] = mesh.valueTable[x * (int)(vertexPerAxis.x) * (int)(vertexPerAxis.z) + w * (int)(vertexPerAxis.x) + (int)(vertexPerAxis.x) * (int)(vertexPerAxis.z) + v + 1];
 
-                    cube.valueTable[0] = mesh.valueTable[x * (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + w * (int)(vertexMultipliers.x) + (int)(vertexMultipliers.x) + v + 1];
-                    cube.valueTable[1] = mesh.valueTable[x * (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + w * (int)(vertexMultipliers.x) + v + 1];
-
-                    cube.valueTable[2] = mesh.valueTable[x * (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + w * (int)(vertexMultipliers.x) + v];
-                    cube.valueTable[3] = mesh.valueTable[x * (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + w * (int)(vertexMultipliers.x) + (int)(vertexMultipliers.x) + v];
-
-                    cube.valueTable[4] = mesh.valueTable[x * (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + w * (int)(vertexMultipliers.x) + (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + (int)(vertexMultipliers.x) + v + 1];
-                    cube.valueTable[5] = mesh.valueTable[x * (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + w * (int)(vertexMultipliers.x) + (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + v + 1];
-
-                    cube.valueTable[6] = mesh.valueTable[x * (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + w * (int)(vertexMultipliers.x) + (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + v];
-                    cube.valueTable[7] = mesh.valueTable[x * (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + w * (int)(vertexMultipliers.x) + (int)(vertexMultipliers.x) * (int)(vertexMultipliers.z) + (int)(vertexMultipliers.x) + v];
+                    cube.valueTable[6] = mesh.valueTable[x * (int)(vertexPerAxis.x) * (int)(vertexPerAxis.z) + w * (int)(vertexPerAxis.x) + (int)(vertexPerAxis.x) * (int)(vertexPerAxis.z) + v];
+                    cube.valueTable[7] = mesh.valueTable[x * (int)(vertexPerAxis.x) * (int)(vertexPerAxis.z) + w * (int)(vertexPerAxis.x) + (int)(vertexPerAxis.x) * (int)(vertexPerAxis.z) + (int)(vertexPerAxis.x) + v];
 
                     Dictionary<int, int> edgeVertexes = new Dictionary<int, int>();
-                    //List<Vector3> vertList = new List<Vector3>();
 
                     for (int cVertex = 0; cVertex < cube.valueTable.Length; cVertex++)
                     {
-                        //Find below SurfaceLevelVertices
+                        //Find Vertices below SurfaceLevel
                         if (CheckInside(cube.valueTable[cVertex]))
                         {
-                            //Getting VerticesToJoin
+                            //Getting Vertices to join
                             foreach (int edge in CornerIndexToEdges(CheckCube(cube)))
                             {
                                 if(!vertList.Contains(VertexFromEdgeIndex(edge, cube)))
@@ -494,43 +477,11 @@ public class MarchingCube : MonoBehaviour
                     {
                         if (triTable[CheckCube(cube), a] != -1) { triangleList.Add(edgeVertexes[triTable[CheckCube(cube), a]]); }
                     }
-
-
-                    /*newMesh.Clear();
-                    newMesh.vertices = vertList.ToArray();
-                    newMesh.triangles = triangleList.ToArray();
-                    newMesh.RecalculateNormals();*/
-
-                    /*CombineInstance inst = new CombineInstance();
-                    inst.mesh = new Mesh();
-                    inst.mesh.vertices = vertList.ToArray();
-                    inst.mesh.triangles = triangleList.ToArray();
-                    inst.transform = transform.localToWorldMatrix;
-                    inst.mesh.RecalculateBounds();
-                    inst.mesh.RecalculateNormals();
-                    //inst.transform = Matrix4x4.Translate(cube.vertexTable[2]);
-                    /*CombineInstance zz = new CombineInstance();
-                    zz.mesh = new Mesh();
-                    zz.mesh.vertices = lastMesh.vertices;
-                    zz.mesh.triangles = lastMesh.triangles;
-
-                    zz.transform = transform.localToWorldMatrix;
-                    combine.Add(zz);
-                    combine.Add(inst);
-                    lastMesh.CombineMeshes(combine.ToArray());
-                    combine.Clear();*/
-
-                    Debug.Log("5");
                 }
             }
         }
+        
         lastMesh.vertices = vertList.ToArray();
-
-        /*lastMesh.Clear();
-        lastMesh.CombineMeshes(combine.ToArray(),true,true,true);
-        lastMesh.RecalculateBounds();
-        lastMesh.RecalculateNormals();*/
-
     }
 
     
@@ -538,18 +489,17 @@ public class MarchingCube : MonoBehaviour
     private void createGrid()
     {
         List<Vector3> vertexList = new List<Vector3>();
-        for(int x = 0; x < vertexMultipliers.x; x++)
+        for(int x = 0; x < vertexPerAxis.x; x++)
         {
-            for (int y = 0; y < vertexMultipliers.y; y++)
+            for (int y = 0; y < vertexPerAxis.y; y++)
             {
-                for (int z = 0; z < vertexMultipliers.z; z++)
+                for (int z = 0; z < vertexPerAxis.z; z++)
                 {
                     vertexList.Add(new Vector3(x * vertexSteps.x, y * vertexSteps.y, z * vertexSteps.z));
                 }
             }
         }
         mesh.vertexTable = vertexList.ToArray();
-        //Debug.Log(mesh.vertexTable.Length);
 
     }
 
@@ -561,7 +511,7 @@ public class MarchingCube : MonoBehaviour
             mesh.valueTable[i] = InsideOrOutsideAttribute();
         }
     }
-
+// For quick debugging
     private void OnDrawGizmos()
     {
         for (int i = 0; i < mesh.vertexTable.Length; i++)
@@ -570,7 +520,6 @@ public class MarchingCube : MonoBehaviour
             {
                 Gizmos.DrawSphere(mesh.vertexTable[i], .1f);
             }
-            //Gizmos.DrawSphere(mesh.vertexTable[i], .1f);
         }
     }
 }
